@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %} — Empresas{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Empresas</h1>
+    <p>Gestiona las empresas auditadas</p>
+  </div>
+  <a href="{{ url_for('new_company') }}" class="btn btn-primary">+ Nueva empresa</a>
+</div>
+
+<div class="card">
+  {% if companies %}
+  <table>
+    <thead>
+      <tr>
+        <th>Empresa</th>
+        <th>Sector</th>
+        <th>Tamaño</th>
+        <th>Contacto</th>
+        <th>Creada</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for c in companies %}
+    <tr>
+      <td style="font-weight:500;">{{ c.name }}</td>
+      <td><span class="badge badge-gray">{{ c.sector or '—' }}</span></td>
+      <td style="color:var(--muted);font-size:13px;">{{ c.size or '—' }}</td>
+      <td style="color:var(--muted);font-size:13px;">{{ c.contact or '—' }}</td>
+      <td style="color:var(--muted);font-size:12px;">{{ c.created_at[:10] }}</td>
+      <td>
+        <a href="{{ url_for('new_audit', company_id=c.id) }}" class="btn btn-primary btn-sm">+ Iniciar auditoría</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:48px 0;color:var(--muted);">
+    <div style="font-size:32px;margin-bottom:12px;">🏢</div>
+    <div style="font-weight:500;margin-bottom:6px;">Sin empresas registradas</div>
+    <a href="{{ url_for('new_company') }}" class="btn btn-primary" style="margin-top:12px;">+ Crear empresa</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

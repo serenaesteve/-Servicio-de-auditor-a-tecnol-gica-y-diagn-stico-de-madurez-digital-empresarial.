@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %} — Nueva empresa{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Nueva empresa</h1>
+    <p>Registra los datos de la empresa a auditar</p>
+  </div>
+  <a href="{{ url_for('companies') }}" class="btn btn-ghost">← Volver</a>
+</div>
+
+<div class="card" style="max-width:560px;">
+  <form method="POST">
+    <div class="form-group">
+      <label>Nombre de la empresa *</label>
+      <input type="text" name="name" required autofocus placeholder="Ej: Acme Technologies SL">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="form-group">
+        <label>Sector *</label>
+        <select name="sector" required>
+          <option value="">Seleccionar...</option>
+          <option>Tecnología</option>
+          <option>Retail / Comercio</option>
+          <option>Salud</option>
+          <option>Manufactura</option>
+          <option>Servicios financieros</option>
+          <option>Logística</option>
+          <option>Educación</option>
+          <option>Consultoría</option>
+          <option>Hostelería / Turismo</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Tamaño *</label>
+        <select name="size" required>
+          <option value="">Seleccionar...</option>
+          <option>1–10 empleados</option>
+          <option>11–50 empleados</option>
+          <option>51–200 empleados</option>
+          <option>200+ empleados</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Persona de contacto</label>
+      <input type="text" name="contact" placeholder="Nombre y cargo">
+    </div>
+    <div style="display:flex;gap:12px;margin-top:8px;">
+      <button type="submit" class="btn btn-primary">Crear empresa →</button>
+      <a href="{{ url_for('companies') }}" class="btn btn-ghost">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

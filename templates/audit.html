@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% block title %} — Auditoría{% endblock %}
+{% block extra_head %}
+<style>
+.audit-layout { display: grid; grid-template-columns: 240px 1fr; gap: 24px; align-items: start; }
+.sidebar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 0; position: sticky; top: 76px; }
+.sidebar-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; padding: 0 16px 8px; font-weight: 500; }
+.dim-item { display: flex; align-items: center; gap: 10px; padding: 9px 16px; cursor: pointer; border-left: 3px solid transparent; transition: all 0.15s; text-decoration: none; }
+.dim-item:hover { background: var(--surface2); }
+.dim-item.active { border-left-color: var(--accent); background: var(--surface2); }
+.dim-item .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dim-item .dim-name { font-size: 13px; color: var(--muted); flex: 1; }
+.dim-item.active .dim-name { color: var(--text); font-weight: 500; }
+.dim-item .dim-pct { font-size: 11px; font-weight: 700; color: var(--muted); }
+.dim-item .dim-pct.done { color: #a3d05f; }
+
+.dim-panel { display: none; }
+.dim-panel.active { display: block; }
+
+.q-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 10px; }
+.q-card h4 { font-size: 14px; font-weight: 400; line-height: 1.5; margin-bottom: 14px; }
+.scale { display: flex; gap: 6px; }
+.scale-btn { flex: 1; padding: 9px 4px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; text-align: center; background: var(--surface2); color: var(--muted); transition: all 0.12s; font-family: 'DM Sans', sans-serif; }
+.scale-btn:hover { border-color: var(--border2); color: var(--text); }
+.scale-btn.sel { background: var(--accent); color: #0A0A0A; border-color: var(--accent); }
+.scale-labels { display: flex; justify-content: space-between; margin-top: 5px; }
+.scale-labels span { font-size: 10px; color: var(--muted); }
+
+.dim-header { margin-bottom: 20px; }
+.dim-header h2 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 20px; display: flex; align-items: center; gap: 10px; }
+.dim-header p { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+.prog-bar-wrap { margin-bottom: 20px; }
+.prog-info { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.progress { height: 4px; }
+
+.nav-btns { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); }
+
+.autosave { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.save-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.save-dot.saving { background: var(--amber); animation: pulse 1s infinite; }
+.save-dot.saved { background: var(--green); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+.notes-area { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 10px; }
+.notes-area label { display: block; font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.notes-area textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; resize: vertical; min-height: 80px; transition: border-color 0.15s; }
+.notes-area textarea:focus { outline: none; border-color: var(--accent); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ audit.company_name }}</h1>
+    <p>{{ audit.sector }} · {{ audit.size }} · Auditoría #{{ audit.id }}</p>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <span class="autosave"><span class="save-dot" id="save-dot"></span><span id="save-label">Sin cambios</span></span>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">← Dashboard</a>
+  </div>
+</div>
+
+<div class="audit-layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-label">Dimensiones</div>
+    {% set dim_colors = ['#7F77DD','#1D9E75','#378ADD','#D4537E','#BA7517','#639922'] %}
+    {% for d in dims %}
+    <div class="dim-item {% if loop.index0 == 0 %}active{% endif %}" onclick="showDim({{ loop.index0 }})" id="si-{{ loop.index0 }}">
+      <div class="dot" style="background:{{ dim_colors[loop.index0] }}"></div>
+      <span class="dim-name">{{ d.name }}</span>
+      <span class="dim-pct" id="sp-{{ loop.index0 }}"></span>
+    </div>
+    {% endfor %}
+    <div style="margin: 12px 0; border-top: 1px solid var(--border);"></div>
+    <div class="dim-item" onclick="showDim(6)" id="si-6" style="{% if audit.status == 'completed' %}{% else %}opacity:0.5;{% endif %}">
+      <div class="dot" style="background:#888"></div>
+      <span class="dim-name" style="font-weight:500;">Resultados</span>
+    </div>
+    <div style="padding: 12px 16px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;font-weight:500;">Progreso global</div>
+      <div class="progress"><div class="progress-fill" id="global-fill" style="width:0%;background:var(--accent);"></div></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="global-label">0 / 30</div>
+    </div>
+  </div>
+
+  <!-- Content panels -->
+  <div>
+    {% set dim_colors = ['#7F77DD','#1D9E75','#378ADD','#D4537E','#BA7517','#639922'] %}
+    {% for d in dims %}
+    <div class="dim-panel {% if loop.index0 == 0 %}active{% endif %}" id="panel-{{ loop.index0 }}">
+      <div class="dim-header">
+        <h2>
+          <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:{{ dim_colors[loop.index0] }};flex-shrink:0;"></span>
+          {{ d.name }}
+        </h2>
+        <p>{{ d.desc }}</p>
+      </div>
+
+      <div class="prog-bar-wrap">
+        <div class="prog-info"><span>Preguntas respondidas</span><span id="dp-{{ loop.index0 }}">0 / {{ d.questions|length }}</span></div>
+        <div class="progress"><div class="progress-fill" id="df-{{ loop.index0 }}" style="width:0%;background:{{ dim_colors[loop.index0] }};"></div></div>
+      </div>
+
+      {% for q in d.questions %}
+      {% set qi = loop.index0 %}
+      {% set di = loop.index0 if loop.index0 == 0 else loop.index0 %}
+      <div class="q-card">
+        <h4>{{ loop.index }}. {{ q }}</h4>
+        <div class="scale" id="scale-{{ loop.index0 }}-{{ qi }}">
+          {% for v in [1,2,3,4,5] %}
+          <div class="scale-btn {% if scores.get(loop.index0|string + '-' + qi|string) == v %}sel{% endif %}"
+               onclick="answer({{ loop.index0 }}, {{ qi }}, {{ v }}, this.parentElement)">{{ v }}</div>
+          {% endfor %}
+        </div>
+        <div class="scale-labels"><span>Sin implementar</span><span>Totalmente implementado</span></div>
+      </div>
+      {% endfor %}
+
+      <div class="notes-area">
+        <label>Notas del auditor — {{ d.name }}</label>
+        <textarea id="notes-{{ loop.index0 }}" placeholder="Observaciones, evidencias, recomendaciones específicas..." onchange="scheduleAutoSave()"></textarea>
+      </div>
+
+      <div class="nav-btns">
+        {% if not loop.first %}
+        <button class="btn btn-ghost" onclick="showDim({{ loop.index0 - 1 }})">← Anterior</button>
+        {% else %}<div></div>{% endif %}
+
+        {% if not loop.last %}
+        <button class="btn btn-primary" onclick="showDim({{ loop.index0 + 1 }})">Siguiente →</button>
+        {% else %}
+        <button class="btn btn-primary" onclick="completeAudit()">Completar auditoría →</button>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <!-- Results panel placeholder -->
+    <div class="dim-panel" id="panel-6">
+      <div class="dim-header">
+        <h2>Resultados</h2>
+        <p>Completa todas las dimensiones para ver el diagnóstico final.</p>
+      </div>
+      <div id="results-placeholder" style="text-align:center;padding:48px;color:var(--muted);">
+        <div style="font-size:32px;margin-bottom:12px;">📊</div>
+        <div>Cuando completes la auditoría, aquí verás el informe de resultados.</div>
+        {% if audit.status == 'completed' %}
+        <a href="{{ url_for('audit_results', audit_id=audit.id) }}" class="btn btn-primary" style="margin-top:16px;">Ver resultados completos →</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const AUDIT_ID = {{ audit.id }};
+let scores = {{ scores | tojson }};
+let saveTimer = null;
+
+// Inicializar desde scores guardados
+document.addEventListener('DOMContentLoaded', () => {
+  Object.entries(scores).forEach(([key, val]) => {
+    const [di, qi] = key.split('-').map(Number);
+    const scale = document.getElementById(`scale-${di}-${qi}`);
+    if (scale) {
+      scale.querySelectorAll('.scale-btn').forEach((btn, i) => {
+        btn.classList.toggle('sel', i + 1 === val);
+      });
+    }
+  });
+  updateAll();
+});
+
+function answer(di, qi, val, scaleEl) {
+  scaleEl.querySelectorAll('.scale-btn').forEach((b, i) => b.classList.toggle('sel', i + 1 === val));
+  scores[`${di}-${qi}`] = val;
+  updateAll();
+  scheduleAutoSave();
+}
+
+function updateAll() {
+  let total = 0;
+  for (let i = 0; i < 6; i++) {
+    let dimAnswered = 0;
+    let dimTotal = 5;
+    let dimSum = 0;
+    for (let j = 0; j < dimTotal; j++) {
+      const v = scores[`${i}-${j}`];
+      if (v !== undefined) { dimAnswered++; dimSum += v; total++; }
+    }
+    const pct = Math.round(dimAnswered / dimTotal * 100);
+    document.getElementById(`df-${i}`).style.width = pct + '%';
+    document.getElementById(`dp-${i}`).textContent = `${dimAnswered} / ${dimTotal}`;
+    const sp = document.getElementById(`sp-${i}`);
+    const avg = dimAnswered === dimTotal ? Math.round(dimSum / dimTotal * 20) : null;
+    sp.textContent = avg !== null ? avg + '%' : '';
+    sp.className = 'dim-pct' + (avg !== null ? ' done' : '');
+  }
+  document.getElementById('global-fill').style.width = Math.round(total / 30 * 100) + '%';
+  document.getElementById('global-label').textContent = `${total} / 30`;
+}
+
+function showDim(i) {
+  document.querySelectorAll('.dim-panel').forEach((p, idx) => p.classList.toggle('active', idx === i));
+  document.querySelectorAll('.dim-item').forEach((s, idx) => s.classList.toggle('active', idx === i));
+  window.scrollTo(0, 0);
+}
+
+function scheduleAutoSave() {
+  const dot = document.getElementById('save-dot');
+  const label = document.getElementById('save-label');
+  dot.className = 'save-dot saving';
+  label.textContent = 'Guardando...';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(autoSave, 1500);
+}
+
+async function autoSave() {
+  const notes = {};
+  document.querySelectorAll('[id^="notes-"]').forEach(t => {
+    notes[t.id.replace('notes-', '')] = t.value;
+  });
+  try {
+    await fetch(`/audit/${AUDIT_ID}/save`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({scores, notes: JSON.stringify(notes)})
+    });
+    document.getElementById('save-dot').className = 'save-dot saved';
+    document.getElementById('save-label').textContent = 'Guardado';
+  } catch(e) {
+    document.getElementById('save-label').textContent = 'Error al guardar';
+  }
+}
+
+async function completeAudit() {
+  const total = Object.keys(scores).length;
+  if (total < 30) {
+    const missing = 30 - total;
+    if (!confirm(`Faltan ${missing} preguntas por responder. ¿Completar igualmente?`)) return;
+  }
+  const notes = {};
+  document.querySelectorAll('[id^="notes-"]').forEach(t => {
+    notes[t.id.replace('notes-', '')] = t.value;
+  });
+  const res = await fetch(`/audit/${AUDIT_ID}/save`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({scores, notes: JSON.stringify(notes), complete: true})
+  });
+  if (res.ok) window.location.href = `/audit/${AUDIT_ID}/results`;
+}
+</script>
+{% endblock %}

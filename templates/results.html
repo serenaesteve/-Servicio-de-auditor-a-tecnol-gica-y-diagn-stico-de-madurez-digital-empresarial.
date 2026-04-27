@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% block title %} — Resultados{% endblock %}
+{% block extra_head %}
+<style>
+.results-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px; }
+.r-card { background: var(--surface2); border-radius: 10px; padding: 18px; border: 1px solid var(--border); }
+.r-card .rl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 500; margin-bottom: 8px; }
+.r-card .rv { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 36px; line-height: 1; }
+.r-card .rsub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+.level-tag { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; letter-spacing: 0.3px; }
+.level-Inicial { background: rgba(226,75,74,0.2); color: #f08080; }
+.level-Básico { background: rgba(239,159,39,0.2); color: #f4c06a; }
+.level-Definido { background: rgba(55,138,221,0.2); color: #7bb8f0; }
+.level-Avanzado { background: rgba(99,153,34,0.2); color: #a3d05f; }
+.level-Líder { background: #BEFF5A; color: #0A0A0A; }
+
+.dim-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.dim-bar-name { font-size: 13px; color: var(--muted); width: 180px; flex-shrink: 0; }
+.dim-bar-wrap { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+.dim-bar-fill { height: 100%; border-radius: 4px; }
+.dim-bar-val { font-size: 13px; font-weight: 700; width: 38px; text-align: right; flex-shrink: 0; }
+
+.rec-card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; display: flex; gap: 14px; align-items: flex-start; }
+.rec-prio { width: 4px; flex-shrink: 0; border-radius: 2px; align-self: stretch; }
+.rec-prio.high { background: var(--red); }
+.rec-prio.mid { background: var(--amber); }
+.rec-prio.low { background: var(--green); }
+
+.rec-body h4 { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
+.rec-body p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+.section-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; margin-bottom: 14px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ audit.company_name }}
+      <span class="level-tag level-{{ audit.level }}" style="margin-left:10px;font-size:13px;">{{ audit.level }}</span>
+    </h1>
+    <p>{{ audit.sector }} · {{ audit.size }} · Completada el {{ audit.completed_at[:10] if audit.completed_at else '—' }}</p>
+  </div>
+  <div style="display:flex;gap:10px;">
+    <a href="{{ url_for('audit', audit_id=audit.id) }}" class="btn btn-ghost">Editar respuestas</a>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">← Dashboard</a>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="results-grid">
+  <div class="r-card">
+    <div class="rl">Índice de madurez digital</div>
+    {% set s = audit.global_score %}
+    <div class="rv {% if s >= 70 %}score-high{% elif s >= 40 %}score-mid{% else %}score-low{% endif %}">{{ s }}%</div>
+    <div class="rsub">Nivel {{ audit.level }}</div>
+  </div>
+  <div class="r-card">
+    <div class="rl">Dimensión más fuerte</div>
+    {% set best = dim_scores | sort(attribute='avg') | last %}
+    <div class="rv score-high" style="font-size:18px;margin-top:6px;line-height:1.2;">{{ best.dim.name }}</div>
+    <div class="rsub">{{ best.pct }}% de cumplimiento</div>
+  </div>
+  <div class="r-card">
+    <div class="rl">Dimensión más débil</div>
+    {% set worst = dim_scores | sort(attribute='avg') | first %}
+    <div class="rv score-low" style="font-size:18px;margin-top:6px;line-height:1.2;">{{ worst.dim.name }}</div>
+    <div class="rsub">{{ worst.pct }}% — requiere atención</div>
+  </div>
+</div>
+
+<div class="two-col">
+  <!-- Puntuaciones por dimensión -->
+  <div class="card">
+    <div class="section-title">Puntuación por dimensión</div>
+    {% set dim_colors = ['#7F77DD','#1D9E75','#378ADD','#D4537E','#BA7517','#639922'] %}
+    {% for ds in dim_scores %}
+    <div class="dim-bar-row">
+      <span class="dim-bar-name">{{ ds.dim.name }}</span>
+      <div class="dim-bar-wrap">
+        <div class="dim-bar-fill" style="width:{{ ds.pct }}%;background:{{ dim_colors[loop.index0] }};"></div>
+      </div>
+      <span class="dim-bar-val {% if ds.pct >= 70 %}score-high{% elif ds.pct >= 40 %}score-mid{% else %}score-low{% endif %}">{{ ds.pct }}%</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Nivel de madurez -->
+  <div class="card">
+    <div class="section-title">Modelo de madurez</div>
+    {% set levels = [('Inicial','Ausencia de estrategia digital. Procesos manuales y reactivos.'),
+                     ('Básico','Iniciativas digitales aisladas. Conciencia pero sin coordinación.'),
+                     ('Definido','Procesos documentados y activos digitales gestionados.'),
+                     ('Avanzado','Integración digital sistémica y cultura data-driven.'),
+                     ('Líder','Innovación continua. Ventaja competitiva digital sostenida.')] %}
+    {% for l, desc in levels %}
+    <div style="display:flex;gap:12px;margin-bottom:12px;align-items:flex-start;">
+      <div style="width:6px;flex-shrink:0;height:38px;border-radius:3px;
+                  background:{% if audit.level == l %}#BEFF5A{% else %}var(--surface2){% endif %};
+                  margin-top:2px;"></div>
+      <div>
+        <div style="font-size:13px;font-weight:{% if audit.level == l %}500{% else %}400{% endif %};
+                    color:{% if audit.level == l %}var(--text){% else %}var(--muted){% endif %};">{{ l }}</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.4;">{{ desc }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div style="margin-top:20px;" class="card">
+  <div class="section-title">Plan de acción recomendado</div>
+  {% for ds in dim_scores | sort(attribute='avg') %}
+  {% if ds.avg < 2.5 %}
+  <div class="rec-card">
+    <div class="rec-prio high"></div>
+    <div class="rec-body">
+      <h4>🔴 Prioridad alta — {{ ds.dim.name }}</h4>
+      <p>Score {{ ds.pct }}%. Esta área requiere un plan de acción inmediato. Se recomienda nombrar un responsable, definir quick wins en los próximos 30 días y asignar presupuesto dedicado.</p>
+    </div>
+  </div>
+  {% elif ds.avg < 3.5 %}
+  <div class="rec-card">
+    <div class="rec-prio mid"></div>
+    <div class="rec-body">
+      <h4>🟡 Oportunidad de mejora — {{ ds.dim.name }}</h4>
+      <p>Score {{ ds.pct }}%. Los fundamentos están en marcha. Formalizar procesos, ampliar la adopción interna y establecer métricas de seguimiento trimestrales.</p>
+    </div>
+  </div>
+  {% else %}
+  <div class="rec-card">
+    <div class="rec-prio low"></div>
+    <div class="rec-body">
+      <h4>🟢 Buen nivel — {{ ds.dim.name }}</h4>
+      <p>Score {{ ds.pct }}%. Área consolidada. Mantener prácticas actuales, compartir conocimiento con otras áreas y buscar optimización continua.</p>
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+
+<div style="margin-top:20px;text-align:right;">
+  <form action="{{ url_for('delete_audit', audit_id=audit.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar esta auditoría?')">
+    <button type="submit" class="btn btn-danger btn-sm">Eliminar auditoría</button>
+  </form>
+</div>
+{% endblock %}
